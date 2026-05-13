@@ -4,6 +4,8 @@ import json
 import os
 import random
 import time
+import zipfile
+import io
 from datetime import datetime
 
 # --- ИНФРАСТРУКТУРА И АВТО-СОЗДАНИЕ ФАЙЛОВ ---
@@ -25,6 +27,15 @@ if not os.path.exists(NICHE_FILE):
 if not os.path.exists(REQ_FILE):
     with open(REQ_FILE, "w", encoding="utf-8") as f:
         f.write("streamlit\n")
+
+# --- АДМИН-ФУНКЦИЯ: СКАЧИВАНИЕ БАЗЫ ---
+def get_all_data_zip():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "x", zipfile.ZIP_DEFLATED) as f:
+        for root, dirs, files in os.walk(DATA_FOLDER):
+            for file in files:
+                f.write(os.path.join(root, file), file)
+    return buf.getvalue()
 
 # --- АВТОМАТИЧЕСКИЙ СБОР МЕТРИК УСТРОЙСТВА (JS) ---
 def get_device_metrics():
@@ -90,6 +101,26 @@ st.markdown("""
     .research-box { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
+
+# --- СЕКРЕТНАЯ АДМИНКА В SIDEBAR ---
+with st.sidebar:
+    st.title("🛡️ Admin Panel")
+    pwd = st.text_input("Введите пароль доступа", type="password")
+    if pwd == "admin777": # МОЖЕШЬ ИЗМЕНИТЬ ПАРОЛЬ ТУТ
+        st.success("Доступ разрешен")
+        count_files = len(os.listdir(DATA_FOLDER))
+        st.write(f"Собрано отчетов: **{count_files}**")
+        
+        if count_files > 0:
+            zip_data = get_all_data_zip()
+            st.download_button(
+                label="📥 СКАЧАТЬ ВСЮ БАЗУ (ZIP)",
+                data=zip_data,
+                file_name=f"ux_dataset_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
+                mime="application/zip"
+            )
+        else:
+            st.warning("База пока пуста")
 
 if 'step' not in st.session_state: st.session_state.step = 1
 if 'user_data' not in st.session_state: st.session_state.user_data = {}
